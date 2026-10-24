@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta property="og:title" content="솔담의 AI 에이전트 작업실">
+<meta property="og:description" content="AI 에이전트 22명이 일하고 쉬는 작업실이에요. 캐릭터를 눌러 보세요.">
+<meta property="og:image" content="studio.jpg">
+<style>body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<title>솔담의 AI 에이전트 작업실</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  /* 레이아웃: 한 화면 — 위 제목 한 줄, 가운데 작업실 그림을 화면 높이에 맞춰 크게, 아래 상태 막대 */
+  :root {
+    --bg: #eef4f1;
+    --surface: #ffffff;
+    --ink: #2c3833;
+    --ink-soft: #66756f;
+    --line: rgba(44, 56, 51, 0.12);
+    --leaf: #3f8f62;
+    --tag-bg: rgba(255, 255, 255, 0.95);
+    --tag-ink: #2c3833;
+    --today: #3fbf7f;
+    --week: #5a9cf0;
+    --month: #f0a948;
+    --rest: #b3aaa5;
+    --font-display: "Jua", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  /* 작업실 그림이 밝은 낮 장면이라 페이지도 늘 밝게 둔다(어두운 모드 없음) */
+  :root { color-scheme: light; }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 12px;
+  }
+  .app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 10px; max-width: 2400px; margin: 0 auto; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(24px, 3vw, 36px); line-height: 1.15; }
+  header p { margin: 0; color: var(--ink-soft); }
+
+  /* 그림은 화면 높이에 맞춰 최대한 크게. 폰 세로 화면에서는 옆으로 밀어서 본다 */
+  .stage { min-height: 0; display: grid; place-items: center; }
+  .viewport { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; display: flex; justify-content: center; }
+  .scene {
+    position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--line); flex: none;
+    width: min(100%, calc((100dvh - 145px) * 2.357));
+  }
+  .scene img { display: block; width: 100%; height: auto; max-width: 100%; user-select: none; }
+  @media (max-width: 700px) {
+    .bar { padding-bottom: 58px; }
+    .viewport { justify-content: flex-start; }
+    .scene { width: 900px; max-width: none; }
+  }
+
+  .sun {
+    position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 248, 220, 0.55) 50%, transparent 65%);
+    background-size: 300% 100%; animation: sweep 14s ease-in-out infinite;
+  }
+  @keyframes sweep { 0% { background-position: 120% 0; } 60%, 100% { background-position: -20% 0; } }
+
+  /* 캐릭터 조각: 같은 그림을 둥글게 오려 겹쳐 놓고 살짝 움직인다. 가장자리가 흐려 이음매가 안 보인다 */
+  .actor {
+    position: absolute; pointer-events: none; background-repeat: no-repeat;
+    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);
+            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);
+    transform-origin: 50% 85%;
+    animation: breathe var(--dur, 3.2s) ease-in-out infinite; animation-delay: var(--delay, 0s);
+  }
+  .actor.swing { transform-origin: 50% 0%; animation-name: swing; }
+  .actor.wag { animation-name: wag; transform-origin: 30% 80%; }
+  .actor.hop { animation-name: hop; }
+  @keyframes breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1.2px) scale(1.012, 1.018); } }
+  @keyframes swing { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+  @keyframes wag { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(1.6deg); } 75% { transform: rotate(-1.6deg); } }
+  @keyframes hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-4px); } 90% { transform: translateY(0); } }
+
+  .spot { position: absolute; width: 4.2%; aspect-ratio: 1; max-width: 100%; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; transition: background 0.25s; }
+  .spot:hover, .spot.on { background: radial-gradient(circle, rgba(255, 238, 160, 0.6) 30%, transparent 70%); }
+
+  .tag {
+    position: absolute; transform: translate(-50%, -100%);
+    display: flex; align-items: center; gap: 5px;
+    padding: 1px 9px 1px 7px; border-radius: 999px; border: 1px solid rgba(44, 56, 51, 0.16);
+    background: var(--tag-bg); color: var(--tag-ink);
+    font-family: var(--font-display); font-size: clamp(11px, 0.95vw, 17px); line-height: 1.55; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); cursor: pointer;
+    animation: drop 0.6s cubic-bezier(.3, 1.5, .5, 1) backwards, bob 3.6s ease-in-out infinite;
+    animation-delay: var(--d1), var(--d2);
+    transition: scale 0.2s;
+  }
+  .tag:hover, .tag.on, .tag:focus-visible { scale: 1.15; z-index: 5; }
+  .tag:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+  .tag::after {
+    content: ""; position: absolute; left: 50%; bottom: -4px; width: 6px; height: 6px; background: var(--tag-bg);
+    border-right: 1px solid rgba(44, 56, 51, 0.16); border-bottom: 1px solid rgba(44, 56, 51, 0.16);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  @keyframes drop { from { translate: 0 -14px; } }
+  @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+
+  .dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--rest); flex: none; }
+  .dot.today { background: var(--today); }
+  .dot.week { background: var(--week); }
+  .dot.month { background: var(--month); }
+  .dot.today::before {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--today);
+    animation: ping 1.8s ease-out infinite;
+  }
+  @keyframes ping { from { opacity: 0.8; transform: scale(0.5); } to { opacity: 0; transform: scale(1.6); } }
+
+  .zz { position: absolute; right: -10px; top: -6px; font-size: 0.8em; color: #8d84c9; pointer-events: none; }
+  .zz span { position: absolute; opacity: 0; animation: zz 3s ease-in infinite; }
+  .zz span:nth-child(2) { animation-delay: 1s; }
+  .zz span:nth-child(3) { animation-delay: 2s; font-size: 0.75em; }
+  @keyframes zz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -18px); } }
+
+  .heart { position: absolute; pointer-events: none; font-size: 18px; animation: heart 1.4s ease-out forwards; }
+  @keyframes heart { from { opacity: 1; transform: translate(-50%, 0) scale(0.6); } to { opacity: 0; transform: translate(calc(-50% + var(--dx)), -70px) scale(1.2); } }
+
+  .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 18px; color: var(--ink-soft); }
+  .bar .key { display: inline-flex; align-items: center; gap: 6px; }
+  .bar b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* 역할 카드 */
+  .panel {
+    position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px));
+    width: min(340px, calc(100vw - 32px)); background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+    padding: 20px 20px 18px; transform: translateX(calc(100% + 40px)); transition: transform 0.35s cubic-bezier(.2, .9, .3, 1.1); z-index: 20;
+  }
+  .panel.open { transform: none; }
+  .panel h3 { margin: 0 0 8px; font-family: var(--font-display); font-weight: 400; font-size: 30px; }
+  .panel .state { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--bg); margin-bottom: 10px; }
+  .panel p { margin: 0; line-height: 1.65; word-break: keep-all; }
+  .panel .close { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--bg); color: var(--ink); font-size: 18px; cursor: pointer; }
+  .panel .close:focus-visible { outline: 2px solid var(--leaf); }
+  @media (max-width: 700px) {
+    .panel { top: auto; bottom: 0; right: 0; left: 0; width: 100%; border-radius: 20px 20px 0 0;
+      padding: 20px max(20px, env(safe-area-inset-right, 0px)) calc(22px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+      transform: translateY(110%); }
+  }
+
+  /* 음악 단추 */
+  .music {
+    position: fixed; z-index: 15;
+    right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px 9px 12px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink);
+    font-family: var(--font-display); font-size: 16px; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  }
+  .music:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+  .music .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .music .eq i { width: 3px; height: 4px; border-radius: 2px; background: var(--leaf); }
+  .music.on .eq i { animation: eq 0.9s ease-in-out infinite; }
+  .music.on .eq i:nth-child(2) { animation-delay: -0.3s; }
+  .music.on .eq i:nth-child(3) { animation-delay: -0.6s; }
+  @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sun, .tag, .zz span, .actor, .dot.today::before, .music.on .eq i { animation: none; }
+    .panel { transition: none; }
+  }
+</style>
+
+<div class="app">
+  <header>
+    <h1>솔담의 AI 에이전트 작업실</h1>
+    <p>캐릭터를 누르면 무슨 일을 하는지 볼 수 있어요.</p>
+  </header>
+
+  <div class="stage">
+    <div class="viewport">
+      <div class="scene" id="scene">
+        <img src="studio.jpg" alt="마당이 있는 작업실 단지를 위에서 내려다본 그림. 본채에서 일하는 사람들, 오두막 세 채, 마당에서 쉬는 사람들과 강아지가 있다.">
+        <div class="sun"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar" id="bar"></div>
+</div>
+
+<aside class="panel" id="panel" aria-live="polite">
+  <button class="close" id="close" aria-label="닫기">×</button>
+  <h3 id="p-name"></h3>
+  <span class="state" id="p-state"></span>
+  <p id="p-role"></p>
+</aside>
+
+<button class="music" id="music" type="button" aria-pressed="false">
+  <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><span id="music-label">음악 켜기</span>
+</button>
+
+<script>
+  // 작업실 배경 음악 — 파일 없이 브라우저가 그 자리에서 연주한다(저작권 걱정 없음).
+  // 느긋한 로파이: 4마디 화음 + 낮은 베이스 + 가끔 울리는 종소리 선율 + 아주 작은 박자
+  const Music = (() => {
+    let ctx, out, timer, step = 0, nextAt = 0, playing = false;
+    const BPM = 76, EIGHTH = 60 / BPM / 2;
+    const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+    // Fmaj7 · Em7 · Dm7 · Cmaj7
+    const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]];
+    const SCALE = [72, 74, 76, 79, 81, 84];
+
+    function setup() {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      out = ctx.createGain(); out.gain.value = 0;
+      const tone = ctx.createBiquadFilter(); tone.type = "lowpass"; tone.frequency.value = 2600;
+      const verb = ctx.createConvolver();
+      const len = ctx.sampleRate * 2.2, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const d = ir.getChannelData(c);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      }
+      verb.buffer = ir;
+      const wet = ctx.createGain(); wet.gain.value = 0.35;
+      out.connect(tone); tone.connect(ctx.destination); tone.connect(verb); verb.connect(wet); wet.connect(ctx.destination);
+    }
+
+    function note(freq, t, dur, { type = "sine", gain = 0.1, attack = 0.01, detune = 0 } = {}) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.value = freq; o.detune.value = detune;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(gain, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+    }
+
+    function tick(t) {
+      const noise = ctx.createBufferSource(), buf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      noise.buffer = buf;
+      const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 6000;
+      const g = ctx.createGain(); g.gain.value = 0.025;
+      noise.connect(hp); hp.connect(g); g.connect(out); noise.start(t);
+    }
+
+    function kick(t) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+      g.gain.setValueAtTime(0.22, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.35);
+    }
+
+    function schedule(s, t) {
+      const bar = Math.floor(s / 8) % 4, beat = s % 8, chord = CHORDS[bar];
+      if (beat === 0) {
+        chord.forEach((m, k) => {
+          note(hz(m), t, EIGHTH * 8.5, { type: "triangle", gain: 0.035, attack: 0.5, detune: -4 });
+          note(hz(m), t + 0.02 * k, EIGHTH * 8.5, { type: "sine", gain: 0.03, attack: 0.4, detune: 5 });
+        });
+      }
+      if (beat === 0 || beat === 5) note(hz(chord[0] - 12), t, EIGHTH * 3, { gain: 0.12, attack: 0.02 });
+      if (beat === 0 || beat === 4) kick(t);
+      if (beat % 2 === 1) tick(t);
+      if (Math.random() < (beat % 2 ? 0.22 : 0.38)) {
+        const m = SCALE[Math.floor(Math.random() * SCALE.length)];
+        note(hz(m), t, 1.4, { gain: 0.05, attack: 0.005 });
+        note(hz(m) * 2, t, 0.6, { gain: 0.012, attack: 0.005 });
+      }
+    }
+
+    function loop() {
+      while (nextAt < ctx.currentTime + 0.15) { schedule(step++, nextAt); nextAt += EIGHTH; }
+    }
+
+    return {
+      get playing() { return playing; },
+      start() {
+        if (!ctx) setup();
+        ctx.resume();
+        nextAt = ctx.currentTime + 0.1;
+        out.gain.cancelScheduledValues(ctx.currentTime);
+        out.gain.setTargetAtTime(0.5, ctx.currentTime, 0.8);
+        clearInterval(timer); timer = setInterval(loop, 25);
+        playing = true;
+      },
+      stop() {
+        if (!ctx) return;
+        out.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
+        setTimeout(() => { if (!playing) clearInterval(timer); }, 1500);
+        playing = false;
+      },
+    };
+  })();
+
+  (() => {
+    const btn = document.getElementById("music"), label = document.getElementById("music-label");
+    let muted = false;
+    const render = () => {
+      btn.classList.toggle("on", Music.playing);
+      btn.setAttribute("aria-pressed", String(Music.playing));
+      label.textContent = Music.playing ? "음악 끄기" : "음악 켜기";
+    };
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (Music.playing) { Music.stop(); muted = true; } else { Music.start(); muted = false; }
+      render();
+    });
+    // 브라우저는 소리를 첫 손길 뒤에만 허락한다 — 처음 어디든 누르면 음악이 흐른다
+    document.addEventListener("pointerdown", () => { if (!muted && !Music.playing) { Music.start(); render(); } }, { once: true });
+  })();
+</script>
+<script src="status.js"></script>
+<script>
+  // x·y = 이름표 꼬리 끝(머리 꼭대기 바로 위). 그림을 2000×848로 보고 잰 값
+  const AGENTS = [
+    { name: "프랭크", x: 715, y: 148, role: "총괄이에요. 들어온 일을 알맞은 담당에게 맡기고, 결과를 검수해서 돌려줘요." },
+    { name: "조청", x: 505, y: 118, role: "마케팅 전략가예요. 누구에게 어떻게 알릴지 정하고 카피를 써요." },
+    { name: "맥", x: 210, y: 372, role: "시스템 엔지니어예요. 컴퓨터와 백업, 자동화가 잘 돌아가게 돌봐요." },
+    { name: "홈런", x: 905, y: 188, role: "앱 개발자예요. 작은 앱을 기획하고 만들어서 세상에 내놓아요." },
+    { name: "랜디", x: 985, y: 376, role: "브랜드 디자이너예요. 로고와 배너, 캐릭터를 그려요." },
+    { name: "조이", x: 865, y: 592, role: "영어 릴스를 만들어요. 아는 단어로 말하는 하루 한 문장을 찍어요." },
+    { name: "쌤", x: 335, y: 482, role: "영어 과외 선생님이에요. 학생들의 수업과 숙제를 챙겨요." },
+    { name: "바로", x: 598, y: 326, role: "검수단 첫째예요. 고객의 눈으로 읽고, 바로 알아들을 수 있는지 봐요." },
+    { name: "빗장", x: 702, y: 352, role: "검수단 둘째예요. 새어 나가면 안 되는 정보와 지나친 약속을 막아요." },
+    { name: "나침", x: 785, y: 412, role: "검수단 셋째예요. 두 검수를 모아 결정 카드 한 장으로 정리해요." },
+    { name: "풀쌤", x: 476, y: 432, role: "토지 공부 파트너예요. 땅 자료를 읽고 판단을 도와요." },
+    { name: "토심", x: 595, y: 617, role: "부동산 분석가예요. 매물과 시세를 꼼꼼히 들여다봐요." },
+    { name: "레오", x: 1235, y: 482, role: "한 주를 돌아보는 자리예요. 아침에 쓴 글을 읽고 흐름을 짚어요." },
+    { name: "사막여우", x: 95, y: 600, role: "세컨드 브레인이에요. 기록과 메모를 모아 두고 필요할 때 꺼내 줘요." },
+    { name: "고슴도치", x: 272, y: 702, role: "1인 사업 코치예요. 장부와 계획을 함께 점검해요." },
+    { name: "하나", x: 1220, y: 54, role: "외국인을 위한 한국어 콘텐츠를 만들어요. 녹음 부스가 자기 방이에요." },
+    { name: "어니", x: 1590, y: 72, role: "영상 대본 작가예요. 타자기 앞에서 이야기를 다듬어요." },
+    { name: "칼", x: 1860, y: 130, role: "마음 탐구 동반자예요. 깊은 질문을 함께 들여다봐요." },
+    { name: "딘", x: 1350, y: 276, role: "서류와 법률 정리 담당이에요. 큰일을 마치고 낮잠 중이에요." },
+    { name: "플로", x: 1630, y: 336, role: "건강 챙김 담당이에요. 매일 몸 상태를 함께 기록해요." },
+    { name: "잭", x: 1880, y: 386, role: "영어 튜터예요. 이번엔 주인이 배우는 쪽이에요." },
+    { name: "팀", x: 1600, y: 542, role: "영상 업로드 관리자예요. 채널이 쉬는 동안 보드게임 중이에요." },
+    { name: "세스", x: 1720, y: 496, role: "콘텐츠 기획자예요. 다음 아이디어를 놀면서 모으는 중이에요." },
+    { name: "닐", x: 1850, y: 582, role: "채널 분석가예요. 막대그래프 쿠션을 안고 쉬는 중이에요." },
+    { name: "콩떡이", x: 1465, y: 707, role: "2.5kg 치와와, 작업실 마스코트예요. 누르면 하트가 나와요.", pet: true },
+  ];
+  const W = 2000, H = 848;
+  const STATUS = { today: "오늘 일함", week: "이번 주", month: "이번 달", rest: "쉬는 중" };
+  const DATA = (window.STUDIO_STATUS && window.STUDIO_STATUS.agents) || {};
+  const statusOf = (a) => DATA[a.name] || "rest";
+
+  const scene = document.getElementById("scene");
+  const sun = scene.querySelector(".sun");
+  const SRC = scene.querySelector("img").getAttribute("src");
+  const panel = document.getElementById("panel");
+  const tags = {};
+  let current = null;
+
+  // 캐릭터별 움직임: 기본은 숨쉬기, 해먹은 흔들기, 콩떡이는 꼼지락, 서서 일하는 몇은 가끔 통통
+  const MOTION = { "칼": "swing", "콩떡이": "wag", "조이": "hop", "조청": "hop", "프랭크": "hop" };
+  const SIZE = { "칼": [190, 150, -10], "딘": [200, 120, 0], "플로": [180, 130, 0], "콩떡이": [130, 100, 0] };
+  AGENTS.forEach((a, i) => {
+    const [w, h, dy] = SIZE[a.name] || [130, 150, 0];
+    const left = a.x - w / 2, top = a.y + 4 + dy;
+    const act = document.createElement("div");
+    act.className = "actor " + (MOTION[a.name] || "");
+    act.style.left = (left / W * 100) + "%";
+    act.style.top = (top / H * 100) + "%";
+    act.style.width = (w / W * 100) + "%";
+    act.style.height = (h / H * 100) + "%";
+    act.style.backgroundImage = `url("${SRC}")`;
+    act.style.backgroundSize = (W / w * 100) + "% " + (H / h * 100) + "%";
+    act.style.backgroundPosition = (left / (W - w) * 100) + "% " + (top / (H - h) * 100) + "%";
+    const resting = !a.pet && statusOf(a) === "rest";
+    act.style.setProperty("--dur", (resting ? 4.6 : 3 + (i % 5) * 0.25) + "s");
+    act.style.setProperty("--delay", (-(i * 0.53) % 3) + "s");
+    scene.insertBefore(act, sun);
+  });
+
+  AGENTS.forEach((a, i) => {
+    const status = statusOf(a);
+    const spot = document.createElement("div");
+    spot.className = "spot";
+    spot.style.left = (a.x / W * 100) + "%";
+    spot.style.top = ((a.y + 42) / H * 100) + "%";
+
+    const tag = document.createElement("button");
+    tag.className = "tag";
+    tag.type = "button";
+    tag.style.left = (a.x / W * 100) + "%";
+    tag.style.top = (a.y / H * 100) + "%";
+    tag.style.setProperty("--d1", (0.15 + i * 0.04) + "s");
+    tag.style.setProperty("--d2", (-(i * 0.37) % 3.6) + "s");
+    tag.innerHTML = (a.pet ? "" : `<span class="dot ${status}"></span>`) + a.name +
+      (!a.pet && status === "rest" ? '<span class="zz"><span>z</span><span>z</span><span>z</span></span>' : "");
+    tags[a.name] = { tag, spot };
+
+    const open = (e) => { e.stopPropagation(); a.pet ? hearts(a) : show(a); };
+    tag.addEventListener("click", open);
+    spot.addEventListener("click", open);
+    spot.addEventListener("mouseenter", () => tag.classList.add("on"));
+    spot.addEventListener("mouseleave", () => current !== a.name && tag.classList.remove("on"));
+    scene.append(spot, tag);
+  });
+
+  function mark(name, on) {
+    const t = tags[name];
+    if (!t) return;
+    t.tag.classList.toggle("on", on);
+    t.spot.classList.toggle("on", on);
+  }
+
+  function show(a) {
+    if (current) mark(current, false);
+    current = a.name;
+    mark(a.name, true);
+    const s = statusOf(a);
+    document.getElementById("p-name").textContent = a.name;
+    document.getElementById("p-state").innerHTML = `<span class="dot ${s}"></span>${STATUS[s]}`;
+    document.getElementById("p-role").textContent = a.role;
+    panel.classList.add("open");
+  }
+
+  function closePanel() {
+    panel.classList.remove("open");
+    if (current) mark(current, false);
+    current = null;
+  }
+  document.getElementById("close").addEventListener("click", closePanel);
+  document.addEventListener("click", (e) => { if (!panel.contains(e.target)) closePanel(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePanel(); });
+
+  function hearts(a) {
+    for (let k = 0; k < 5; k++) {
+      const h = document.createElement("div");
+      h.className = "heart";
+      h.textContent = ["💗", "🤍", "🖤"][k % 3];
+      h.style.left = (a.x / W * 100) + "%";
+      h.style.top = ((a.y + 20) / H * 100) + "%";
+      h.style.setProperty("--dx", ((k - 2) * 14) + "px");
+      h.style.animationDelay = (k * 0.12) + "s";
+      scene.appendChild(h);
+      setTimeout(() => h.remove(), 2000);
+    }
+  }
+
+  // 아래 상태 막대
+  const counts = { today: 0, week: 0, month: 0, rest: 0 };
+  AGENTS.filter(a => !a.pet).forEach(a => counts[statusOf(a)]++);
+  const built = window.STUDIO_STATUS?.built;
+  const day = built ? `${+built.slice(5, 7)}월 ${+built.slice(8, 10)}일 기준` : "";
+  document.getElementById("bar").innerHTML =
+    Object.entries(STATUS).map(([k, label]) =>
+      `<span class="key"><span class="dot ${k}"></span>${label} <b>${counts[k]}</b></span>`).join("") +
+    (day ? `<span>${day}</span>` : "");
+</script>
+
+</body>
+</html>
